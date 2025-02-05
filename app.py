@@ -1,14 +1,13 @@
-from flask import Flask,request,jsonify
+from flask import Flask, jsonify
 
 app = Flask(__name__)
 
-@app.route('/api',methods = ['GET'])
+@app.route("/api/greet", methods=["GET"])
+def greet():
+    return jsonify({"message": "Hello from Python backend!"})
 
-def returnasii():
-    d={}
-    inputchr = str(request.args['query'])
-    answer = str(ord(inputchr))
-    d['output'] = answer
-    return d
+if __name__ == "__main__":
+    app.run()
+
 
 
