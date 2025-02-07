@@ -1,13 +1,18 @@
-from flask import Flask, jsonify
 
-app = Flask(__name__)
+from flask import Flask,request,jsonify # type: ignore
 
-@app.route("/", methods=["GET"])
-def greet():
-    return jsonify({"message": "Hello from Python backend!"})
+app = Flask (__name__)
 
-if __name__ == "__main__":
+@app.route('/api', methods = ['GET'])
+ 
+def returnascii():
+    d = {}
+    inputchr = str(request.args.get('query'))
+    answer = str(ord (inputchr))
+    d['output'] = answer
+    return d
+
+
+
+if __name__== "__main__":
     app.run()
-
-
-
