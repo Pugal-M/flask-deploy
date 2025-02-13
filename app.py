@@ -41,7 +41,7 @@ def returnascii():
 
 @app.route('/upload',methods=["POST"])
 def upload():
-    if(request.mathod == "POST"):
+    if request.method == "POST":
         imagefile = request.files['image']
         filename = werkzeug.utils.secure_filename(imagefile.filename)
         imagefile.save("./uploadimage/"+filename)
