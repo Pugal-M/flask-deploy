@@ -1,6 +1,8 @@
 
 from flask import Flask,request,jsonify
 import numpy as np
+import werkzeug
+import werkzeug.utils
 app = Flask (__name__)
 
 @app.route('/api', methods = ['GET'])
@@ -37,7 +39,15 @@ def returnascii():
     d['D'] = f"D = {D:.6f}"
     return d
 
-
+@app.route('/upload',method=["POST"])
+def upload():
+    if(request.mathod == "POST"):
+        imagefile = request.files['image']
+        filename = werkzeug.utils.secure_filename(imagefile.filename)
+        imagefile.save("./uploadimage/"+filename)
+        return jsonify({
+            "message" : "Image Uploaded Succesfully"
+        })
 
 
 if __name__== "__main__":
