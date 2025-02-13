@@ -39,7 +39,7 @@ def returnascii():
     d['D'] = f"D = {D:.6f}"
     return d
 
-@app.route('/upload',method=["POST"])
+@app.route('/upload',methods=["POST"])
 def upload():
     if(request.mathod == "POST"):
         imagefile = request.files['image']
