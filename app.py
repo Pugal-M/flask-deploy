@@ -3,6 +3,7 @@ from flask import Flask,request,jsonify
 import numpy as np
 import werkzeug
 import werkzeug.utils
+import re
 app = Flask (__name__)
 
 @app.route('/api', methods = ['GET'])
@@ -38,23 +39,40 @@ def returnascii():
     d['C'] = f"C = {C:.6f}"
     d['D'] = f"D = {D:.6f}"
     return d
-@app.route('/post_string', methods=['POST'])
-def receive_string():
+app = Flask(__name__)
+
+def parse_verilog(file_content: str) -> str:
+    keywords = ["and", "or", "not", "nand", "nor", "xor", "xnor", "buf"]
+    results = []
+
+    for line in file_content.splitlines():
+        for key in keywords:
+            if re.search(rf"\b{key}\b", line):
+                start = line.find("(")
+                end = line.find(")")
+                if start != -1 and end != -1:
+                    content = line[start + 1:end].split(",")
+                    if len(content) > 1:
+                        output = content[0].strip()
+                        inputs = [inp.strip() for inp in content[1:]]
+                        results.append(f"{key}: Output = {output}, Inputs = {', '.join(inputs)}")
+
+    return "\n".join(results) if results else "No matches found"
+
+@app.route('/parse', methods=['POST'])
+def parse_file():
     try:
         data = request.get_json()
-        received_text = data.get("text", "")
+        verilog_text = data.get("verilog_code", "")
 
-        if not received_text:
-            return jsonify({"error": "No text provided"}), 400
+        if not verilog_text:
+            return jsonify({"error": "No Verilog code provided"}), 400
 
-        # Process the string (e.g., make it uppercase for demonstration)
-        processed_text = received_text.upper()
-
-        return jsonify({"original": received_text, "processed": processed_text})
+        parsed_output = parse_verilog(verilog_text)
+        return jsonify({"parsed_result": parsed_output})
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-
 
 
 @app.route('/upload',methods=["POST"])
