@@ -46,8 +46,9 @@ def parse_verilog(file_content: str) -> str:
     results = []
 
     for line in file_content.splitlines():
+        line = line.strip()  # Remove spaces
         for key in keywords:
-            if re.search(rf"\b{key}\b", line):
+            if re.match(rf"^{key}\s+\w+\s*\(", line):  # Match gate with instance name
                 start = line.find("(")
                 end = line.find(")")
                 if start != -1 and end != -1:
@@ -57,22 +58,26 @@ def parse_verilog(file_content: str) -> str:
                         inputs = [inp.strip() for inp in content[1:]]
                         results.append(f"{key}: Output = {output}, Inputs = {', '.join(inputs)}")
 
-    return "\n".join(results) if results else "No matches found"
+    return "\n".join(results) if results else "No gates found"
 
 @app.route('/parse', methods=['POST'])
 def parse_file():
     try:
         data = request.get_json()
-        verilog_text = data.get("verilog_code", "")
+        if not data or "verilog_code" not in data:
+            return jsonify({"error": "Invalid JSON format or missing 'verilog_code'"}), 400  
 
+        verilog_text = data["verilog_code"].strip()
         if not verilog_text:
-            return jsonify({"error": "No Verilog code provided"}), 400
+            return jsonify({"error": "Verilog code is empty"}), 400  
 
         parsed_output = parse_verilog(verilog_text)
         return jsonify({"parsed_result": parsed_output})
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+
 
 
 @app.route('/upload',methods=["POST"])
