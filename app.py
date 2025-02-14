@@ -38,8 +38,28 @@ def returnascii():
     d['C'] = f"C = {C:.6f}"
     d['D'] = f"D = {D:.6f}"
     return d
+@app.route('/post_string', methods=['POST'])
+def receive_string():
+    try:
+        data = request.get_json()
+        received_text = data.get("text", "")
+
+        if not received_text:
+            return jsonify({"error": "No text provided"}), 400
+
+        # Process the string (e.g., make it uppercase for demonstration)
+        processed_text = received_text.upper()
+
+        return jsonify({"original": received_text, "processed": processed_text})
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 
 @app.route('/upload',methods=["POST"])
+
+# image upload 
 def upload():
     if request.method == "POST":
         imagefile = request.files['image']
