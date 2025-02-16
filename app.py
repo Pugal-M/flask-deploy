@@ -62,24 +62,24 @@ def parse_verilog(file_content: str) -> str:
     return "\n".join(results) if results else "No gates found"
 
 
+import re
+import string
+
 def generate_netlist(verilog_code: str) -> str:
+    # List of logic gates
     keywords = ["and", "or", "not", "nand", "nor", "xor", "xnor", "buf"]
+    
     results = []
-    module_name = ""
     header_lines = []
     logical_lines = []
-
     buffer = ""
+
+    # Extract module definition, input, output, wire declarations
     for line in verilog_code.splitlines():
         line = line.strip()
-        
-        if re.match(r"^(module|input|output|wire|reg)\\b", line):
-            header_lines.append(line)
 
-        if line.startswith("module"):
-            module_name_match = re.match(r"module\\s+(\\w+)", line)
-            if module_name_match:
-                module_name = module_name_match.group(1)
+        if re.match(r"^(module|input|output|wire|reg)\b", line):
+            header_lines.append(line)
 
         if ";" in line:
             parts = line.split(";")
@@ -89,13 +89,15 @@ def generate_netlist(verilog_code: str) -> str:
             buffer = parts[-1].strip()
         else:
             buffer += " " + line + " "
+    
     if buffer:
         logical_lines.append(buffer.strip())
 
+    # Fanout tracking
     fanout_counter = {}
     for line in logical_lines:
         for key in keywords:
-            matches = re.finditer(rf"\\b{key}\\b", line, re.IGNORECASE)
+            matches = re.finditer(rf"\b{key}\b", line, re.IGNORECASE)
             for match in matches:
                 start = line.find("(", match.end())
                 end = line.find(")", start)
@@ -106,10 +108,11 @@ def generate_netlist(verilog_code: str) -> str:
                         for input_port in input_ports:
                             fanout_counter[input_port] = fanout_counter.get(input_port, 0) + 1
 
+    # Generate the netlist output
     instance_counter = 1
     for line in logical_lines:
         for key in keywords:
-            matches = re.finditer(rf"\\b{key}\\b", line, re.IGNORECASE)
+            matches = re.finditer(rf"\b{key}\b", line, re.IGNORECASE)
             for match in matches:
                 start = line.find("(", match.end())
                 end = line.find(")", start)
@@ -118,16 +121,24 @@ def generate_netlist(verilog_code: str) -> str:
                     if content:
                         output_port, input_ports = content[0], content[1:]
                         fanout = fanout_counter.get(output_port, 1)
-                        gate_instantiation = f"C12T28SOI_LR_{key.upper()}{len(input_ports)}X{fanout}_P0 U{instance_counter} ( "
+
+                        # Construct gate instance
+                        gate_type = key.upper()
+                        input_count = len(input_ports)
+                        gate_instantiation = f"C12T28SOI_LR_{gate_type}{input_count}X{fanout}_P0 U{instance_counter} ( "
+
                         input_labels = list(string.ascii_uppercase)
                         for i, input_port in enumerate(input_ports):
                             gate_instantiation += f".{input_labels[i]}({input_port}), "
                         gate_instantiation += f".Z({output_port}) );"
+
                         results.append(gate_instantiation)
                         instance_counter += 1
 
+    # Construct final module output
     output = "\n".join(header_lines) + "\n\n" + "\n".join(results) + "\n\nendmodule"
     return output
+
 
 @app.route('/parse', methods=['POST'])
 def parse_file():
