@@ -4,6 +4,7 @@ import numpy as np
 import werkzeug
 import werkzeug.utils
 import re
+import string 
 app = Flask (__name__)
 
 @app.route('/api', methods = ['GET'])
@@ -60,6 +61,74 @@ def parse_verilog(file_content: str) -> str:
 
     return "\n".join(results) if results else "No gates found"
 
+
+def generate_netlist(verilog_code: str) -> str:
+    keywords = ["and", "or", "not", "nand", "nor", "xor", "xnor", "buf"]
+    results = []
+    module_name = ""
+    header_lines = []
+    logical_lines = []
+
+    buffer = ""
+    for line in verilog_code.splitlines():
+        line = line.strip()
+        
+        if re.match(r"^(module|input|output|wire|reg)\\b", line):
+            header_lines.append(line)
+
+        if line.startswith("module"):
+            module_name_match = re.match(r"module\\s+(\\w+)", line)
+            if module_name_match:
+                module_name = module_name_match.group(1)
+
+        if ";" in line:
+            parts = line.split(";")
+            for part in parts[:-1]:
+                logical_lines.append(buffer + part.strip())
+                buffer = ""
+            buffer = parts[-1].strip()
+        else:
+            buffer += " " + line + " "
+    if buffer:
+        logical_lines.append(buffer.strip())
+
+    fanout_counter = {}
+    for line in logical_lines:
+        for key in keywords:
+            matches = re.finditer(rf"\\b{key}\\b", line, re.IGNORECASE)
+            for match in matches:
+                start = line.find("(", match.end())
+                end = line.find(")", start)
+                if start != -1 and end != -1:
+                    content = [c.strip() for c in line[start + 1:end].split(",") if c.strip()]
+                    if content:
+                        output_port, input_ports = content[0], content[1:]
+                        for input_port in input_ports:
+                            fanout_counter[input_port] = fanout_counter.get(input_port, 0) + 1
+
+    instance_counter = 1
+    for line in logical_lines:
+        for key in keywords:
+            matches = re.finditer(rf"\\b{key}\\b", line, re.IGNORECASE)
+            for match in matches:
+                start = line.find("(", match.end())
+                end = line.find(")", start)
+                if start != -1 and end != -1:
+                    content = [c.strip() for c in line[start + 1:end].split(",") if c.strip()]
+                    if content:
+                        output_port, input_ports = content[0], content[1:]
+                        fanout = fanout_counter.get(output_port, 1)
+                        gate_instantiation = f"C12T28SOI_LR_{key.upper()}{len(input_ports)}X{fanout}_P0 U{instance_counter} ( "
+                        input_labels = list(string.ascii_uppercase)
+                        for i, input_port in enumerate(input_ports):
+                            gate_instantiation += f".{input_labels[i]}({input_port}), "
+                        gate_instantiation += f".Z({output_port}) );"
+                        results.append(gate_instantiation)
+                        instance_counter += 1
+
+    output = "\n".join(header_lines) + "\n\n" + "\n".join(results) + "\n\nendmodule"
+    return output
+
 @app.route('/parse', methods=['POST'])
 def parse_file():
     try:
@@ -71,7 +140,7 @@ def parse_file():
         if not verilog_text:
             return jsonify({"error": "Verilog code is empty"}), 400  
 
-        parsed_output = parse_verilog(verilog_text)
+        parsed_output = generate_netlist(verilog_text)
         return jsonify({"parsed_result": parsed_output})
 
     except Exception as e:
